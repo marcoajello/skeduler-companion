@@ -6,7 +6,6 @@
 const SUPABASE_URL = 'https://qcnepxcqilqrhayzhlfa.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjbmVweGNxaWxxcmhheXpobGZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0NTgwMjYsImV4cCI6MjA3ODAzNDAyNn0.Gz7wvMgtu-UtCqw-5MF9s-T-pk-eo2TSw7zOtedWozk';
 
-// App State
 const state = {
   supabase: null,
   user: null,
@@ -18,7 +17,6 @@ const state = {
   syncTimeout: null
 };
 
-// DOM Elements
 const els = {
   authScreen: null,
   projectsScreen: null,
@@ -38,7 +36,6 @@ const els = {
   syncStatus: null
 };
 
-// Initialize
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
@@ -140,7 +137,6 @@ async function loadProjects() {
   els.loadingProjects.style.display = 'block';
   els.projectList.innerHTML = '';
   
-  // Query schedule-files storage bucket (same as desktop)
   const { data, error } = await state.supabase.storage
     .from('schedule-files')
     .list(state.user.id, {
@@ -150,11 +146,10 @@ async function loadProjects() {
   els.loadingProjects.style.display = 'none';
   
   if (error) {
-    els.projectList.innerHTML = `<div class="empty-state"><p>Error loading projects</p></div>`;
+    els.projectList.innerHTML = '<div class="empty-state"><p>Error loading projects</p></div>';
     return;
   }
   
-  // Filter to only .json files and convert to project format
   state.projects = (data || [])
     .filter(f => f.name.endsWith('.json'))
     .map(f => ({
@@ -164,23 +159,14 @@ async function loadProjects() {
     }));
   
   if (state.projects.length === 0) {
-    els.projectList.innerHTML = `
-      <div class="empty-state">
-        <h2>No Projects</h2>
-        <p>Create projects in the desktop app</p>
-      </div>
-    `;
+    els.projectList.innerHTML = '<div class="empty-state"><h2>No Projects</h2><p>Create projects in the desktop app</p></div>';
     return;
   }
   
   state.projects.forEach(project => {
     const item = document.createElement('div');
     item.className = 'project-item';
-    item.innerHTML = `
-      <div class="name">${escapeHtml(project.name)}</div>
-      <div class="meta">${formatDate(project.updated_at)}</div>
-      <div class="arrow">›</div>
-    `;
+    item.innerHTML = '<div class="name">' + escapeHtml(project.name) + '</div><div class="meta">' + formatDate(project.updated_at) + '</div><div class="arrow">›</div>';
     item.addEventListener('click', () => openProject(project));
     els.projectList.appendChild(item);
   });
@@ -191,13 +177,12 @@ async function openProject(project) {
   els.scheduleTitle.textContent = project.name;
   showScheduleScreen();
   
-  // Load schedule file
   const { data, error } = await state.supabase.storage
     .from('schedule-files')
-    .download(`${state.user.id}/${project.file_name}`);
+    .download(state.user.id + '/' + project.file_name);
   
   if (error) {
-    els.scheduleBody.innerHTML = `<tr><td colspan="4" class="empty-state">Error loading schedule</td></tr>`;
+    els.scheduleBody.innerHTML = '<tr><td colspan="4" class="empty-state">Error loading schedule</td></tr>';
     return;
   }
   
@@ -211,13 +196,12 @@ async function openProject(project) {
 
 function renderDayTabs() {
   els.dayTabs.innerHTML = '';
-  
   const days = state.scheduleData.days || [{ label: 'Day 1' }];
   
   days.forEach((day, index) => {
     const tab = document.createElement('button');
     tab.className = 'day-tab' + (index === state.currentDayIndex ? ' active' : '');
-    tab.textContent = day.label || `Day ${index + 1}`;
+    tab.textContent = day.label || ('Day ' + (index + 1));
     tab.addEventListener('click', () => {
       state.currentDayIndex = index;
       renderDayTabs();
@@ -229,6 +213,26 @@ function renderDayTabs() {
   els.dayTabs.style.display = days.length > 1 ? 'flex' : 'none';
 }
 
+function parseTime(timeStr) {
+  const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+  if (!match) return 480;
+  let hours = parseInt(match[1]);
+  const mins = parseInt(match[2]);
+  const period = match[3];
+  if (period && period.toUpperCase() === 'PM' && hours !== 12) hours += 12;
+  if (period && period.toUpperCase() === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + mins;
+}
+
+function formatTime(totalMins) {
+  let hours = Math.floor(totalMins / 60) % 24;
+  const mins = totalMins % 60;
+  const period = hours >= 12 ? 'PM' : 'AM';
+  if (hours > 12) hours -= 12;
+  if (hours === 0) hours = 12;
+  return hours + ':' + mins.toString().padStart(2, '0') + ' ' + period;
+}
+
 function renderSchedule() {
   els.scheduleBody.innerHTML = '';
   
@@ -236,57 +240,58 @@ function renderSchedule() {
   const currentDay = days[state.currentDayIndex];
   
   if (!currentDay || !currentDay.rows) {
-    els.scheduleBody.innerHTML = `<tr><td colspan="4" class="empty-state">No rows in schedule</td></tr>`;
+    els.scheduleBody.innerHTML = '<tr><td colspan="4" class="empty-state">No rows in schedule</td></tr>';
     return;
   }
   
+  const scheduleStart = parseTime(currentDay.scheduleStart || '8:00 AM');
+  
   currentDay.rows.forEach(row => {
-    renderRow(row);
-    
+    renderRow(row, false, scheduleStart);
     if (row.children && row.children.length > 0) {
-      row.children.forEach(child => renderRow(child, true));
+      row.children.forEach(child => renderRow(child, true, scheduleStart));
     }
   });
 }
 
-function renderRow(row, isChild = false) {
+function renderRow(row, isChild, scheduleStart) {
   const tr = document.createElement('tr');
   tr.id = row.id;
   tr.dataset.rowId = row.id;
   
-  if (row.type === 'event') tr.classList.add('row-event');
-  if (row.type === 'calltime') tr.classList.add('row-calltime');
+  const rowType = (row.type || '').toUpperCase();
+  if (rowType === 'EVENT') tr.classList.add('row-event');
+  if (rowType === 'CALLTIME') tr.classList.add('row-calltime');
   if (isChild) tr.classList.add('row-child');
   if (row.completed) tr.classList.add('row-complete');
   
   const statusCell = document.createElement('td');
   statusCell.className = 'col-status';
-  
-  if (row.type !== 'event' && row.type !== 'calltime') {
-    const btn = document.createElement('button');
-    btn.className = 'complete-btn';
-    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleComplete(row.id, tr);
-    });
-    statusCell.appendChild(btn);
-  }
+  const btn = document.createElement('button');
+  btn.className = 'complete-btn';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleComplete(row.id, tr);
+  });
+  statusCell.appendChild(btn);
   tr.appendChild(statusCell);
   
   const timeCell = document.createElement('td');
   timeCell.className = 'col-time';
-  timeCell.textContent = row.start || row.time || '';
+  const rowTime = scheduleStart + (row.offset || 0);
+  timeCell.textContent = formatTime(rowTime);
   tr.appendChild(timeCell);
   
   const shotCell = document.createElement('td');
   shotCell.className = 'col-shot';
-  shotCell.textContent = row.shot || row.title || '';
+  shotCell.textContent = row.title || rowType || '';
   tr.appendChild(shotCell);
   
   const descCell = document.createElement('td');
   descCell.className = 'col-desc';
-  descCell.textContent = row.desc || row.description || row.notes || '';
+  const customText = row.custom ? row.custom.c_text : null;
+  descCell.textContent = (customText && typeof customText === 'object') ? (customText.value || '') : (customText || '');
   tr.appendChild(descCell);
   
   els.scheduleBody.appendChild(tr);
@@ -328,13 +333,12 @@ function queueSync() {
 
 async function syncNow() {
   clearTimeout(state.syncTimeout);
-  
   if (!state.currentProject || !state.scheduleData) return;
   
   showSyncStatus('Syncing...', '');
   
   try {
-    const filePath = `${state.user.id}/${state.currentProject.file_name}`;
+    const filePath = state.user.id + '/' + state.currentProject.file_name;
     const jsonString = JSON.stringify(state.scheduleData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     
@@ -355,7 +359,7 @@ async function syncNow() {
 
 function showSyncStatus(message, type) {
   els.syncStatus.textContent = message;
-  els.syncStatus.className = 'sync-status visible' + (type ? ` ${type}` : '');
+  els.syncStatus.className = 'sync-status visible' + (type ? ' ' + type : '');
   
   if (type === 'success' || type === 'error') {
     setTimeout(() => {
@@ -366,9 +370,7 @@ function showSyncStatus(message, type) {
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function formatDate(dateStr) {
