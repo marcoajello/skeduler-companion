@@ -1,6 +1,5 @@
 /**
  * Skeduler Companion App
- * Minimal iPad client for viewing schedules and marking shots complete
  */
 
 const SUPABASE_URL = 'https://qcnepxcqilqrhayzhlfa.supabase.co';
@@ -13,92 +12,53 @@ const state = {
   currentProject: null,
   scheduleData: null,
   currentDayIndex: 0,
-  pendingChanges: [],
-  syncTimeout: null
+  syncTimeout: null,
+  shotCol: null,
+  descCol: null
 };
 
-const els = {
-  authScreen: null,
-  projectsScreen: null,
-  scheduleScreen: null,
-  emailInput: null,
-  passwordInput: null,
-  signInBtn: null,
-  authError: null,
-  signOutBtn: null,
-  projectList: null,
-  loadingProjects: null,
-  backBtn: null,
-  scheduleTitle: null,
-  syncBtn: null,
-  dayTabs: null,
-  scheduleBody: null,
-  syncStatus: null
-};
+const els = {};
 
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-  Object.keys(els).forEach(key => {
-    els[key] = document.getElementById(key) || document.querySelector(`.${key}`);
+  ['authScreen','projectsScreen','scheduleScreen','emailInput','passwordInput','signInBtn','authError','signOutBtn','projectList','loadingProjects','backBtn','scheduleTitle','syncBtn','dayTabs','scheduleBody','syncStatus'].forEach(id => {
+    els[id] = document.getElementById(id);
   });
-  els.authScreen = document.getElementById('authScreen');
-  els.projectsScreen = document.getElementById('projectsScreen');
-  els.scheduleScreen = document.getElementById('scheduleScreen');
   
   state.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   
   state.supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) {
-      state.user = session.user;
-      showProjectsScreen();
-    }
+    if (session) { state.user = session.user; showProjectsScreen(); }
   });
   
   state.supabase.auth.onAuthStateChange((event, session) => {
     state.user = session?.user || null;
-    if (session) {
-      showProjectsScreen();
-    } else {
-      showAuthScreen();
-    }
+    session ? showProjectsScreen() : showAuthScreen();
   });
   
   els.signInBtn.addEventListener('click', handleSignIn);
-  els.passwordInput.addEventListener('keypress', e => {
-    if (e.key === 'Enter') handleSignIn();
-  });
+  els.passwordInput.addEventListener('keypress', e => { if (e.key === 'Enter') handleSignIn(); });
   els.signOutBtn.addEventListener('click', handleSignOut);
   els.backBtn.addEventListener('click', showProjectsScreen);
   els.syncBtn.addEventListener('click', syncNow);
   
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(err => {
-      console.log('SW registration failed:', err);
-    });
+    navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 }
 
 async function handleSignIn() {
   const email = els.emailInput.value.trim();
   const password = els.passwordInput.value;
-  
-  if (!email || !password) {
-    showAuthError('Please enter email and password');
-    return;
-  }
+  if (!email || !password) { showAuthError('Please enter email and password'); return; }
   
   els.signInBtn.disabled = true;
   els.signInBtn.textContent = 'SIGNING IN...';
-  
   const { error } = await state.supabase.auth.signInWithPassword({ email, password });
-  
   els.signInBtn.disabled = false;
   els.signInBtn.textContent = 'SIGN IN';
-  
-  if (error) {
-    showAuthError(error.message);
-  }
+  if (error) showAuthError(error.message);
 }
 
 async function handleSignOut() {
@@ -139,9 +99,7 @@ async function loadProjects() {
   
   const { data, error } = await state.supabase.storage
     .from('schedule-files')
-    .list(state.user.id, {
-      sortBy: { column: 'created_at', order: 'desc' }
-    });
+    .list(state.user.id, { sortBy: { column: 'created_at', order: 'desc' } });
   
   els.loadingProjects.style.display = 'none';
   
@@ -152,14 +110,10 @@ async function loadProjects() {
   
   state.projects = (data || [])
     .filter(f => f.name.endsWith('.json'))
-    .map(f => ({
-      name: f.name.replace('.json', ''),
-      file_name: f.name,
-      updated_at: f.created_at
-    }));
+    .map(f => ({ name: f.name.replace('.json', ''), file_name: f.name, updated_at: f.created_at }));
   
   if (state.projects.length === 0) {
-    els.projectList.innerHTML = '<div class="empty-state"><h2>No Projects</h2><p>Create projects in the desktop app</p></div>';
+    els.projectList.innerHTML = '<div class="empty-state"><h2>No Projects</h2><p>Push projects from desktop app</p></div>';
     return;
   }
   
@@ -189,6 +143,20 @@ async function openProject(project) {
   const text = await data.text();
   state.scheduleData = JSON.parse(text);
   state.currentDayIndex = 0;
+  
+  // Find shot and description columns from cols array
+  const cols = state.scheduleData.cols || [];
+  state.shotCol = null;
+  state.descCol = null;
+  
+  cols.forEach(col => {
+    if (col.type !== 'text') return;
+    const label = (col.label || '').toUpperCase();
+    if (label === '#' || label === 'SHOT') state.shotCol = col.key;
+    if (label.includes('DESC') || label === 'NOTES') state.descCol = col.key;
+  });
+  
+  console.log('Shot column:', state.shotCol, 'Desc column:', state.descCol);
   
   renderDayTabs();
   renderSchedule();
@@ -254,6 +222,15 @@ function renderSchedule() {
   });
 }
 
+function getCustomValue(row, colKey) {
+  if (!colKey || !row.custom) return '';
+  const val = row.custom[colKey];
+  if (!val) return '';
+  if (typeof val === 'object' && val.value !== undefined) return val.value;
+  if (typeof val === 'string') return val;
+  return '';
+}
+
 function renderRow(row, isChild, scheduleStart) {
   const tr = document.createElement('tr');
   tr.id = row.id;
@@ -265,33 +242,33 @@ function renderRow(row, isChild, scheduleStart) {
   if (isChild) tr.classList.add('row-child');
   if (row.completed) tr.classList.add('row-complete');
   
+  // Status cell
   const statusCell = document.createElement('td');
   statusCell.className = 'col-status';
   const btn = document.createElement('button');
   btn.className = 'complete-btn';
   btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleComplete(row.id, tr);
-  });
+  btn.addEventListener('click', (e) => { e.stopPropagation(); toggleComplete(row.id, tr); });
   statusCell.appendChild(btn);
   tr.appendChild(statusCell);
   
+  // Time cell
   const timeCell = document.createElement('td');
   timeCell.className = 'col-time';
   const rowTime = scheduleStart + (row.offset || 0);
   timeCell.textContent = formatTime(rowTime);
   tr.appendChild(timeCell);
   
+  // Shot cell - from shot column or title
   const shotCell = document.createElement('td');
   shotCell.className = 'col-shot';
-  shotCell.textContent = row.title || rowType || '';
+  shotCell.textContent = getCustomValue(row, state.shotCol) || row.title || '';
   tr.appendChild(shotCell);
   
+  // Description cell - from desc column
   const descCell = document.createElement('td');
   descCell.className = 'col-desc';
-  const customText = row.custom ? row.custom.c_text : null;
-  descCell.textContent = (customText && typeof customText === 'object') ? (customText.value || '') : (customText || '');
+  descCell.textContent = getCustomValue(row, state.descCol);
   tr.appendChild(descCell);
   
   els.scheduleBody.appendChild(tr);
@@ -299,7 +276,6 @@ function renderRow(row, isChild, scheduleStart) {
 
 function toggleComplete(rowId, tr) {
   const isComplete = tr.classList.toggle('row-complete');
-  
   const days = state.scheduleData.days || [];
   const currentDay = days[state.currentDayIndex];
   
@@ -310,7 +286,6 @@ function toggleComplete(rowId, tr) {
       row.completedAt = isComplete ? Date.now() : null;
     }
   }
-  
   queueSync();
 }
 
@@ -343,13 +318,11 @@ async function syncNow() {
     const blob = new Blob([jsonString], { type: 'application/json' });
     
     await state.supabase.storage.from('schedule-files').remove([filePath]);
-    
     const { error } = await state.supabase.storage
       .from('schedule-files')
       .upload(filePath, blob, { cacheControl: '3600', upsert: false });
     
     if (error) throw error;
-    
     showSyncStatus('Synced', 'success');
   } catch (err) {
     console.error('Sync error:', err);
@@ -360,17 +333,14 @@ async function syncNow() {
 function showSyncStatus(message, type) {
   els.syncStatus.textContent = message;
   els.syncStatus.className = 'sync-status visible' + (type ? ' ' + type : '');
-  
   if (type === 'success' || type === 'error') {
-    setTimeout(() => {
-      els.syncStatus.classList.remove('visible');
-    }, 2000);
+    setTimeout(() => els.syncStatus.classList.remove('visible'), 2000);
   }
 }
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function formatDate(dateStr) {
