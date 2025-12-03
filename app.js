@@ -42,7 +42,6 @@ const els = {
 document.addEventListener('DOMContentLoaded', init);
 
 function init() {
-  // Cache DOM elements
   Object.keys(els).forEach(key => {
     els[key] = document.getElementById(key) || document.querySelector(`.${key}`);
   });
@@ -50,10 +49,8 @@ function init() {
   els.projectsScreen = document.getElementById('projectsScreen');
   els.scheduleScreen = document.getElementById('scheduleScreen');
   
-  // Initialize Supabase
   state.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   
-  // Check existing session
   state.supabase.auth.getSession().then(({ data: { session } }) => {
     if (session) {
       state.user = session.user;
@@ -61,7 +58,6 @@ function init() {
     }
   });
   
-  // Auth state listener
   state.supabase.auth.onAuthStateChange((event, session) => {
     state.user = session?.user || null;
     if (session) {
@@ -71,7 +67,6 @@ function init() {
     }
   });
   
-  // Event listeners
   els.signInBtn.addEventListener('click', handleSignIn);
   els.passwordInput.addEventListener('keypress', e => {
     if (e.key === 'Enter') handleSignIn();
@@ -80,7 +75,6 @@ function init() {
   els.backBtn.addEventListener('click', showProjectsScreen);
   els.syncBtn.addEventListener('click', syncNow);
   
-  // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(err => {
       console.log('SW registration failed:', err);
@@ -88,7 +82,6 @@ function init() {
   }
 }
 
-// Auth handlers
 async function handleSignIn() {
   const email = els.emailInput.value.trim();
   const password = els.passwordInput.value;
@@ -124,7 +117,6 @@ function showAuthError(msg) {
   setTimeout(() => els.authError.textContent = '', 4000);
 }
 
-// Screen navigation
 function showAuthScreen() {
   els.authScreen.classList.remove('hidden');
   els.projectsScreen.classList.add('hidden');
@@ -144,16 +136,16 @@ function showScheduleScreen() {
   els.scheduleScreen.classList.remove('hidden');
 }
 
-// Projects
 async function loadProjects() {
   els.loadingProjects.style.display = 'block';
   els.projectList.innerHTML = '';
   
-  const { data, error } = await state.supabase
-    .from('projects')
-    .select('*')
-    .eq('user_id', state.user.id)
-    .order('updated_at', { ascending: false });
+  // Query schedule-files storage bucket (same as desktop)
+  const { data, error } = await state.supabase.storage
+    .from('schedule-files')
+    .list(state.user.id, {
+      sortBy: { column: 'created_at', order: 'desc' }
+    });
   
   els.loadingProjects.style.display = 'none';
   
@@ -162,7 +154,14 @@ async function loadProjects() {
     return;
   }
   
-  state.projects = data || [];
+  // Filter to only .json files and convert to project format
+  state.projects = (data || [])
+    .filter(f => f.name.endsWith('.json'))
+    .map(f => ({
+      name: f.name.replace('.json', ''),
+      file_name: f.name,
+      updated_at: f.created_at
+    }));
   
   if (state.projects.length === 0) {
     els.projectList.innerHTML = `
@@ -193,10 +192,9 @@ async function openProject(project) {
   showScheduleScreen();
   
   // Load schedule file
-  const fileName = project.file_path.split('/').pop();
   const { data, error } = await state.supabase.storage
     .from('schedule-files')
-    .download(`${state.user.id}/${fileName}`);
+    .download(`${state.user.id}/${project.file_name}`);
   
   if (error) {
     els.scheduleBody.innerHTML = `<tr><td colspan="4" class="empty-state">Error loading schedule</td></tr>`;
@@ -211,7 +209,6 @@ async function openProject(project) {
   renderSchedule();
 }
 
-// Day tabs
 function renderDayTabs() {
   els.dayTabs.innerHTML = '';
   
@@ -229,11 +226,9 @@ function renderDayTabs() {
     els.dayTabs.appendChild(tab);
   });
   
-  // Hide tabs if only one day
   els.dayTabs.style.display = days.length > 1 ? 'flex' : 'none';
 }
 
-// Schedule rendering
 function renderSchedule() {
   els.scheduleBody.innerHTML = '';
   
@@ -248,7 +243,6 @@ function renderSchedule() {
   currentDay.rows.forEach(row => {
     renderRow(row);
     
-    // Render children (sub-events)
     if (row.children && row.children.length > 0) {
       row.children.forEach(child => renderRow(child, true));
     }
@@ -260,17 +254,14 @@ function renderRow(row, isChild = false) {
   tr.id = row.id;
   tr.dataset.rowId = row.id;
   
-  // Row type styling
   if (row.type === 'event') tr.classList.add('row-event');
   if (row.type === 'calltime') tr.classList.add('row-calltime');
   if (isChild) tr.classList.add('row-child');
   if (row.completed) tr.classList.add('row-complete');
   
-  // Status cell (completion toggle)
   const statusCell = document.createElement('td');
   statusCell.className = 'col-status';
   
-  // Only show toggle for regular rows, not events/calltimes
   if (row.type !== 'event' && row.type !== 'calltime') {
     const btn = document.createElement('button');
     btn.className = 'complete-btn';
@@ -283,19 +274,16 @@ function renderRow(row, isChild = false) {
   }
   tr.appendChild(statusCell);
   
-  // Time cell
   const timeCell = document.createElement('td');
   timeCell.className = 'col-time';
   timeCell.textContent = row.start || row.time || '';
   tr.appendChild(timeCell);
   
-  // Shot cell
   const shotCell = document.createElement('td');
   shotCell.className = 'col-shot';
   shotCell.textContent = row.shot || row.title || '';
   tr.appendChild(shotCell);
   
-  // Description cell
   const descCell = document.createElement('td');
   descCell.className = 'col-desc';
   descCell.textContent = row.desc || row.description || row.notes || '';
@@ -304,11 +292,9 @@ function renderRow(row, isChild = false) {
   els.scheduleBody.appendChild(tr);
 }
 
-// Completion toggle
 function toggleComplete(rowId, tr) {
   const isComplete = tr.classList.toggle('row-complete');
   
-  // Update data
   const days = state.scheduleData.days || [];
   const currentDay = days[state.currentDayIndex];
   
@@ -320,7 +306,6 @@ function toggleComplete(rowId, tr) {
     }
   }
   
-  // Queue sync
   queueSync();
 }
 
@@ -335,9 +320,7 @@ function findRow(rows, id) {
   return null;
 }
 
-// Sync
 function queueSync() {
-  // Debounce - wait 2 seconds after last change
   clearTimeout(state.syncTimeout);
   state.syncTimeout = setTimeout(syncNow, 2000);
   showSyncStatus('Pending...', '');
@@ -351,12 +334,10 @@ async function syncNow() {
   showSyncStatus('Syncing...', '');
   
   try {
-    const fileName = state.currentProject.file_path.split('/').pop();
-    const filePath = `${state.user.id}/${fileName}`;
+    const filePath = `${state.user.id}/${state.currentProject.file_name}`;
     const jsonString = JSON.stringify(state.scheduleData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     
-    // Delete then upload (no update permission)
     await state.supabase.storage.from('schedule-files').remove([filePath]);
     
     const { error } = await state.supabase.storage
@@ -383,7 +364,6 @@ function showSyncStatus(message, type) {
   }
 }
 
-// Utilities
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/[&<>"']/g, c => ({
