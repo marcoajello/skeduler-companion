@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d1117">
+  
+  <title>Skeduler Companion</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  
+  <!-- Auth Screen -->
+  <div id="authScreen" class="screen">
+    <div class="auth-container">
+      <h1>SKEDULER</h1>
+      <p class="subtitle">Companion</p>
+      
+      <div class="auth-form">
+        <input type="email" id="emailInput" placeholder="Email" autocomplete="email">
+        <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password">
+        <button id="signInBtn" class="btn primary">SIGN IN</button>
+        <p id="authError" class="error"></p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Project List Screen -->
+  <div id="projectsScreen" class="screen hidden">
+    <header>
+      <h1>PROJECTS</h1>
+      <button id="signOutBtn" class="btn small">Sign Out</button>
+    </header>
+    
+    <div id="projectList" class="project-list">
+      <!-- Populated by JS -->
+    </div>
+    
+    <div id="loadingProjects" class="loading">Loading projects...</div>
+  </div>
+  
+  <!-- Schedule Screen -->
+  <div id="scheduleScreen" class="screen hidden">
+    <header>
+      <button id="backBtn" class="btn small">← Back</button>
+      <h1 id="scheduleTitle">Schedule</h1>
+      <div class="header-actions">
+        <button id="syncBtn" class="btn small">Sync</button>
+      </div>
+    </header>
+    
+    <!-- Day Tabs -->
+    <div id="dayTabs" class="day-tabs">
+      <!-- Populated by JS -->
+    </div>
+    
+    <div id="scheduleContainer" class="schedule-container">
+      <table id="scheduleTable">
+        <thead>
+          <tr>
+            <th class="col-status"></th>
+            <th class="col-time">TIME</th>
+            <th class="col-shot">SHOT</th>
+            <th class="col-desc">DESCRIPTION</th>
+          </tr>
+        </thead>
+        <tbody id="scheduleBody">
+          <!-- Populated by JS -->
+        </tbody>
+      </table>
+    </div>
+    
+    <div id="syncStatus" class="sync-status"></div>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>

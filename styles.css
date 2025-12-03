@@ -1,0 +1,411 @@
+/* Skeduler Companion - Touch-optimized styles */
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #7d8590;
+  --accent: #58a6ff;
+  --success: #3fb950;
+  --danger: #f85149;
+  --row-odd: #161b22;
+  --row-even: #1c2128;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 16px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overscroll-behavior: none;
+}
+
+/* Safe area handling for notched devices */
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Screens */
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.screen.hidden {
+  display: none;
+}
+
+/* Auth Screen */
+.auth-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
+
+.auth-container h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  margin: 0;
+}
+
+.auth-container .subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 8px 0 40px;
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 16px;
+  font-size: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.auth-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.error {
+  color: var(--danger);
+  font-size: 14px;
+  text-align: center;
+  margin: 8px 0 0;
+}
+
+/* Buttons */
+.btn {
+  padding: 16px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.btn.small {
+  padding: 10px 16px;
+  font-size: 12px;
+}
+
+.btn:active {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 12px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Project List */
+.project-list {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.project-item:active {
+  background: var(--border);
+}
+
+.project-item .name {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.project-item .meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.project-item .arrow {
+  font-size: 20px;
+  color: var(--muted);
+  margin-left: 12px;
+}
+
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Day Tabs */
+.day-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.day-tab {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.day-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+/* Schedule Table */
+.schedule-container {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#scheduleTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#scheduleTable th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  padding: 12px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.col-status { width: 50px; }
+.col-time { width: 80px; }
+.col-shot { width: 80px; }
+.col-desc { width: auto; }
+
+#scheduleTable td {
+  padding: 16px 8px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+#scheduleTable tr:nth-child(odd) {
+  background: var(--row-odd);
+}
+
+#scheduleTable tr:nth-child(even) {
+  background: var(--row-even);
+}
+
+/* Row Types */
+.row-event {
+  background: #1a2332 !important;
+}
+
+.row-event td:first-child {
+  border-left: 3px solid var(--accent);
+}
+
+.row-calltime {
+  background: #1e2a1e !important;
+}
+
+.row-calltime td {
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* Completion Toggle */
+.complete-btn {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.complete-btn:active {
+  transform: scale(0.9);
+}
+
+.complete-btn svg {
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  stroke: var(--success);
+  stroke-width: 3;
+  transition: opacity 0.15s ease;
+}
+
+/* Completed Row */
+.row-complete {
+  opacity: 0.5;
+}
+
+.row-complete .complete-btn {
+  border-color: var(--success);
+  background: var(--success);
+}
+
+.row-complete .complete-btn svg {
+  opacity: 1;
+  stroke: #000;
+}
+
+.row-complete td:not(:first-child) {
+  text-decoration: line-through;
+  text-decoration-color: var(--danger);
+  text-decoration-thickness: 2px;
+}
+
+/* Sync Status */
+.sync-status {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.sync-status.visible {
+  opacity: 1;
+}
+
+.sync-status.success {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.sync-status.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Empty State */
+.empty-state {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state h2 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+.empty-state p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* Pull to Refresh indicator */
+.pull-indicator {
+  text-align: center;
+  padding: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
